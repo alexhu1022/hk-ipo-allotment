@@ -197,6 +197,43 @@
     background: transparent; border: 1px solid var(--line); color: var(--text);
   }
   .hint { color: var(--muted); font-size: .82rem; margin-top: 8px; }
+
+  /* 公开认购超购倍数：醒目高亮，浅/深色均可辨 */
+  label.field.os-highlight {
+    position: relative;
+  }
+  label.field.os-highlight > span.os-tag {
+    display: inline-flex; align-items: center; gap: 4px;
+    color: #b45309; font-weight: 700;
+  }
+  @media (prefers-color-scheme: dark) {
+    label.field.os-highlight > span.os-tag { color: #fbbf24; }
+  }
+  label.field.os-highlight input#osText,
+  input#osText.os-input {
+    border: 2px solid #f59e0b;
+    background: linear-gradient(180deg, rgba(251,191,36,.22), rgba(245,158,11,.10));
+    box-shadow: 0 0 0 3px rgba(245,158,11,.22), inset 0 1px 0 rgba(255,255,255,.08);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--text);
+  }
+  @media (prefers-color-scheme: light) {
+    label.field.os-highlight input#osText,
+    input#osText.os-input {
+      border-color: #d97706;
+      background: linear-gradient(180deg, #fffbeb, #fef3c7);
+      box-shadow: 0 0 0 3px rgba(217,119,6,.18);
+      color: #92400e;
+    }
+  }
+  label.field.os-highlight input#osText:focus,
+  input#osText.os-input:focus {
+    border-color: #f59e0b;
+    box-shadow: 0 0 0 4px rgba(245,158,11,.35);
+  }
+  .prob-main { font-weight: 700; }
+  .prob-sub { color: var(--muted); font-size: .78rem; margin-top: 2px; }
 </style>
 </head>
 <body>
@@ -221,8 +258,8 @@
         <label class="field">新股代码
           <input id="codeText" inputmode="numeric" placeholder="如 09621" value="09621" />
         </label>
-        <label class="field">公开认购超购倍数
-          <input id="osText" type="number" inputmode="decimal" placeholder="例如 500" value="100" min="0" step="any" />
+        <label class="field os-highlight"><span class="os-tag">公开认购超购倍数（必填）</span>
+          <input id="osText" class="os-input" type="number" inputmode="decimal" placeholder="例如 500" value="100" min="0" step="any" />
         </label>
       </div>
       <div class="grid grid-3" style="margin-top:12px">
@@ -252,7 +289,7 @@
 
     <section class="card">
       <h2><span class="dot"></span>乙组市值 → 预估中签手数</h2>
-      <p class="caption">乙头按刚过500万港元估；可改档位或自定义市值</p>
+      <p class="caption">乙头按刚过500万港元估；可改档位或自定义市值。手数概率按期望手数拆成相邻两档</p>
       <div class="grid grid-2">
         <label class="field">乙组关注档位
           <select id="bTier">
@@ -269,12 +306,12 @@
       <div class="scroll" style="margin-top:12px">
         <table>
           <thead>
-            <tr><th>档位</th><th class="num">申购市值</th><th class="num">约申手数</th><th class="num">期望手数</th><th class="num">预估中签</th></tr>
+            <tr><th>档位</th><th class="num">申购市值</th><th class="num">约申手数</th><th class="num">期望手数</th><th class="num">预估中签</th><th>手数概率</th></tr>
           </thead>
           <tbody id="tierBody"></tbody>
         </table>
       </div>
-      <p class="hint">计算：期望手数 ≈（申购市值 ÷ 一手入场费）× 乙组平均获配比例。乙头略好、乙尾略差时，表中用同一均分比例作中位粗估。</p>
+      <p class="hint">计算：期望手数 ≈（申购市值 ÷ 一手入场费）× 乙组平均获配比例；再拆成「N手 · 约XX%」。乙头略好、乙尾略差时，表中用同一均分比例作中位粗估。</p>
     </section>
 
     <section class="card">
@@ -311,9 +348,11 @@
       <div class="eq"><span class="tag">(2)</span>乙组获配比例 ≈
         <span class="frac"><span class="num">公开池一半</span><span class="bar"></span><span class="den">乙组申请（约占总申请75%）</span></span>
       </div>
+      <div class="eq"><span class="tag">(3)</span>手数概率：期望 E 非整数时，floor(E) 手概率 = 1−{E}，ceil(E) 手概率 = {E}；与整数差&lt;0.02 视为稳中约 N 手
+      </div>
       <div class="props">
         <div class="prop"><div class="k">乙头</div><div class="v">刚过500万港元的最低乙组档，常用来对比甲尾</div></div>
-        <div class="prop"><div class="k">0～1手</div><div class="v">期望手数&lt;1时的读法：大概率抽0或1手，中1手概率约等于期望值</div></div>
+        <div class="prop"><div class="k">手数概率</div><div class="v">不能稳中时读作「N手 · 约XX%」（如期望0.6→1手 · 约60%）；两侧手数均列出</div></div>
         <div class="prop"><div class="k">代码库</div><div class="v">认购中批次已带一手入场费；未收录可手改</div></div>
       </div>
     </section>
@@ -341,7 +380,7 @@
       <div class="steps">
         <div class="step"><div class="n">1</div><div><div class="t">选代码并填超购倍数</div><div class="d">库内代码会预填机制与一手入场费</div></div></div>
         <div class="step"><div class="n">2</div><div><div class="t">看甲组一手率</div><div class="d">打一手主要看这个</div></div></div>
-        <div class="step"><div class="n">3</div><div><div class="t">选乙头/乙中/乙尾或填市值</div><div class="d">看预估中签手数，如 0～1手</div></div></div>
+        <div class="step"><div class="n">3</div><div><div class="t">选乙头/乙中/乙尾或填市值</div><div class="d">看预估中签手数，并读「N手 · 约XX%」概率</div></div></div>
         <div class="step"><div class="n">4</div><div><div class="t">以配发公告为准</div><div class="d">本页为规则+经验估算，不构成投资建议</div></div></div>
       </div>
     </section>
@@ -433,6 +472,28 @@ function fmtLots(exp) {
   return low + "～" + high + "手";
 }
 
+/** 乙组手数概率：E=期望手数；非整数拆成 floor/ceil 两档 */
+function lotProb(E) {
+  if (!Number.isFinite(E) || E <= 0) {
+    return { kind: "none", primary: "—", both: "—", label: "—" };
+  }
+  if (Math.abs(E - Math.round(E)) < 0.02) {
+    const n = Math.round(E);
+    const t = "稳中约 " + n + " 手";
+    return { kind: "sure", n, primary: t, both: t, label: t };
+  }
+  const low = Math.floor(E);
+  const high = Math.ceil(E);
+  const pHigh = E - low;
+  const pLow = 1 - pHigh;
+  const pct = (p) => Math.round(p * 100) + "%";
+  const lowTxt = low + "手 · 约" + pct(pLow);
+  const highTxt = high + "手 · 约" + pct(pHigh);
+  const both = lowTxt + "；" + highTxt;
+  const primary = pHigh >= pLow ? highTxt : lowTxt;
+  return { kind: "split", low, high, pLow, pHigh, primary, both, label: both };
+}
+
 function avgFill(mech, os) {
   if (os <= 0) return 0;
   if (mech === "B") return 1 / os;
@@ -470,7 +531,8 @@ function bTierLots(bFill, entryFee, wan) {
   const fee = entryFee > 0 ? entryFee : 5000;
   const lotsApplied = Math.max(1, Math.round((wan * 10000) / fee));
   const expected = lotsApplied * bFill;
-  return { wan, lotsApplied, expected, label: fmtLots(expected) };
+  const prob = lotProb(expected);
+  return { wan, lotsApplied, expected, label: fmtLots(expected), prob };
 }
 
 const el = (id) => document.getElementById(id);
@@ -626,14 +688,14 @@ function render() {
   el("metrics").innerHTML = `
     <div class="metric ${m1Tone}"><div class="val">${os > 0 ? fmtPct(est.aOne.mid * 100) : "—"}</div><div class="lab">甲组 · 一手中签率（中位）</div><div class="det">${os > 0 ? "区间 " + fmtPct(est.aOne.low * 100) + "–" + fmtPct(est.aOne.high * 100) : "填超购倍数"}</div></div>
     <div class="metric ${m2Tone}"><div class="val">${os > 0 ? fmtPct(est.bFill * 100) : "—"}</div><div class="lab">乙组 · 平均获配比例</div><div class="det">按甲乙资金约25:75、公开池各半</div></div>
-    <div class="metric ${m3Tone}"><div class="val">${bFocus ? bFocus.label : "—"}</div><div class="lab">${(bFocus ? bFocus.name : "乙头")} · 预估中签手数</div><div class="det">${bFocus ? "约申 " + bFocus.lotsApplied.toLocaleString("zh-CN") + " 手 · 期望 " + bFocus.expected.toFixed(2) + " 手" : "需超购倍数 + 一手入场费"}</div></div>
+    <div class="metric ${m3Tone}"><div class="val">${bFocus ? bFocus.prob.primary : "—"}</div><div class="lab">${(bFocus ? bFocus.name : "乙头")} · 手数概率</div><div class="det">${bFocus ? (bFocus.prob.kind === "split" ? bFocus.prob.both + "<br>" : "") + "期望 " + bFocus.expected.toFixed(2) + " 手 · 约申 " + bFocus.lotsApplied.toLocaleString("zh-CN") + " 手 · 区间 " + bFocus.label : "需超购倍数 + 一手入场费"}</div></div>
     <div class="metric"><div class="val">${os > 0 ? fmtPct(est.fill * 100) : "—"}</div><div class="lab">公开整体平均获配</div><div class="det">${os > 0 ? "有效超购 " + fmtMult(est.effOs) + " · 公开最终 " + est.cb.final + "%" : "—"}</div></div>
   `;
 
   const call = el("callout");
   if (os > 0) {
     const tone = est.aOne.mid >= 0.05 ? "" : "warn";
-    call.innerHTML = `<div class="callout ${tone}"><strong>甲组 vs 乙组</strong>甲组一手用历史抽签经验带；乙组手数 = 申购手数 × 乙组平均获配比例。期望不足 1 手时显示为 0～1手（实质是抽签中一手的概率约等于期望手数）。</div>`;
+    call.innerHTML = `<div class="callout ${tone}"><strong>甲组 vs 乙组</strong>甲组一手用历史抽签经验带；乙组期望手数 E = 申购手数 × 乙组平均获配比例。不能稳中时按「N手 · 约XX%」读：floor(E)/ceil(E) 两档概率（如 E=0.6 → 0手·约40%；1手·约60%）。</div>`;
   } else call.innerHTML = "";
 
   if (bTiers) {
@@ -643,23 +705,23 @@ function render() {
       ["乙尾", "约5000万", bTiers.tail],
     ];
     let html = rows.map(([n, wan, t]) =>
-      `<tr><td>${n}</td><td class="num">${wan}</td><td class="num">${t.lotsApplied.toLocaleString("zh-CN")}</td><td class="num">${t.expected.toFixed(2)}</td><td class="num">${t.label}</td></tr>`
+      `<tr><td>${n}</td><td class="num">${wan}</td><td class="num">${t.lotsApplied.toLocaleString("zh-CN")}</td><td class="num">${t.expected.toFixed(2)}</td><td class="num">${t.label}</td><td>${t.prob.both}</td></tr>`
     ).join("");
     if (bTiers.custom) {
-      html += `<tr><td>自定义</td><td class="num">${bTiers.custom.wan}万</td><td class="num">${bTiers.custom.lotsApplied.toLocaleString("zh-CN")}</td><td class="num">${bTiers.custom.expected.toFixed(2)}</td><td class="num">${bTiers.custom.label}</td></tr>`;
+      html += `<tr><td>自定义</td><td class="num">${bTiers.custom.wan}万</td><td class="num">${bTiers.custom.lotsApplied.toLocaleString("zh-CN")}</td><td class="num">${bTiers.custom.expected.toFixed(2)}</td><td class="num">${bTiers.custom.label}</td><td>${bTiers.custom.prob.both}</td></tr>`;
     } else {
-      html += `<tr><td>自定义</td><td class="num">填左侧市值</td><td class="num">—</td><td class="num">—</td><td class="num">—</td></tr>`;
+      html += `<tr><td>自定义</td><td class="num">填左侧市值</td><td class="num">—</td><td class="num">—</td><td class="num">—</td><td>—</td></tr>`;
     }
     el("tierBody").innerHTML = html;
   } else {
-    el("tierBody").innerHTML = `<tr><td colspan="5">先填超购倍数与一手入场费</td></tr>`;
+    el("tierBody").innerHTML = `<tr><td colspan="6">先填超购倍数与一手入场费</td></tr>`;
   }
 
   el("detailBody").innerHTML = [
     ["甲组", "一手中签率", os > 0 ? fmtPct(est.aOne.mid * 100) : "—", os > 0 ? "经验区间 " + fmtPct(est.aOne.low * 100) + "–" + fmtPct(est.aOne.high * 100) : "待输入"],
     ["甲组", "金额均分获配", os > 0 ? fmtPct(est.aMoneyFill * 100) : "—", "甲尾等大额档更接近此值"],
     ["乙组", "平均获配比例", os > 0 ? fmtPct(est.bFill * 100) : "—", "乙头略好、乙尾略差"],
-    ["乙组", (bFocus ? bFocus.name : "乙头") + "中签手数", bFocus ? bFocus.label : "—", bFocus ? "期望 " + bFocus.expected.toFixed(2) + " 手" : "需入场费"],
+    ["乙组", (bFocus ? bFocus.name : "乙头") + "手数概率", bFocus ? bFocus.prob.primary : "—", bFocus ? bFocus.prob.both + " · 期望 " + bFocus.expected.toFixed(2) + " 手" : "需入场费"],
     ["整体", "公开平均获配", os > 0 ? fmtPct(est.fill * 100) : "—", est.cb.label],
   ].map((r) => `<tr><td>${r[0]}</td><td>${r[1]}</td><td class="num">${r[2]}</td><td>${r[3]}</td></tr>`).join("");
 
