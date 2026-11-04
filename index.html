@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="color-scheme" content="light dark" />
+<title>港股打新中签率估算</title>
+<style>
+  :root {
+    --bg: #0b1220;
+    --bg2: #121a2b;
+    --card: #162033;
+    --card2: #1a2740;
+    --line: rgba(148,163,184,.18);
+    --text: #e8eef9;
+    --muted: #94a3b8;
+    --accent: #38bdf8;
+    --accent2: #818cf8;
+    --ok: #34d399;
+    --warn: #fbbf24;
+    --danger: #f87171;
+    --shadow: 0 10px 40px rgba(0,0,0,.35);
+    --radius: 16px;
+    --font: "SF Pro Text", "PingFang SC", "Noto Sans SC", "Segoe UI", system-ui, sans-serif;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: #f4f7fb;
+      --bg2: #eef3f9;
+      --card: #ffffff;
+      --card2: #f8fafc;
+      --line: rgba(15,23,42,.08);
+      --text: #0f172a;
+      --muted: #64748b;
+      --shadow: 0 10px 30px rgba(15,23,42,.08);
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: var(--font);
+    background:
+      radial-gradient(1200px 600px at 10% -10%, rgba(56,189,248,.18), transparent 55%),
+      radial-gradient(900px 500px at 100% 0%, rgba(129,140,248,.16), transparent 50%),
+      var(--bg);
+    color: var(--text);
+    line-height: 1.55;
+    min-height: 100vh;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 20px 16px 64px; }
+  header {
+    display: flex; flex-wrap: wrap; gap: 12px 20px;
+    align-items: flex-end; justify-content: space-between;
+    margin-bottom: 18px;
+  }
+  h1 { font-size: clamp(1.35rem, 3.5vw, 1.85rem); margin: 0 0 6px; letter-spacing: -.02em; }
+  .sub { color: var(--muted); font-size: .92rem; max-width: 52ch; margin: 0; }
+  .badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 6px 12px; border-radius: 999px;
+    background: rgba(56,189,248,.12); color: var(--accent);
+    font-size: .78rem; font-weight: 600; border: 1px solid rgba(56,189,248,.25);
+  }
+  .card {
+    background: linear-gradient(180deg, var(--card), var(--card2));
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 16px;
+    box-shadow: var(--shadow);
+    margin-bottom: 14px;
+  }
+  .card h2 {
+    margin: 0 0 12px; font-size: 1.05rem;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .card h2 .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+  }
+  .caption { color: var(--muted); font-size: .82rem; margin: -6px 0 12px; }
+  .grid { display: grid; gap: 12px; }
+  .grid-3 { grid-template-columns: repeat(3, 1fr); }
+  .grid-2 { grid-template-columns: repeat(2, 1fr); }
+  @media (max-width: 760px) {
+    .grid-3, .grid-2 { grid-template-columns: 1fr; }
+  }
+  label.field { display: flex; flex-direction: column; gap: 6px; font-size: .82rem; color: var(--muted); }
+  input, select, button {
+    font: inherit; color: var(--text);
+    background: rgba(15,23,42,.35);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 11px 12px;
+    outline: none;
+    transition: border-color .15s, box-shadow .15s;
+  }
+  @media (prefers-color-scheme: light) {
+    input, select, button { background: #fff; }
+  }
+  input:focus, select:focus {
+    border-color: rgba(56,189,248,.55);
+    box-shadow: 0 0 0 3px rgba(56,189,248,.15);
+  }
+  .props {
+    display: grid; gap: 8px;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    margin-top: 12px;
+  }
+  .prop {
+    background: rgba(148,163,184,.06);
+    border: 1px solid var(--line);
+    border-radius: 12px; padding: 10px 12px;
+  }
+  .prop .k { font-size: .75rem; color: var(--muted); }
+  .prop .v { font-size: .92rem; font-weight: 600; margin-top: 2px; word-break: break-word; }
+  .metrics {
+    display: grid; gap: 10px;
+    grid-template-columns: repeat(4, 1fr);
+  }
+  @media (max-width: 900px) { .metrics { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 480px) { .metrics { grid-template-columns: 1fr; } }
+  .metric {
+    background: rgba(15,23,42,.22);
+    border: 1px solid var(--line);
+    border-radius: 14px; padding: 14px;
+    min-height: 110px;
+  }
+  .metric.ok { border-color: rgba(52,211,153,.35); }
+  .metric.warn { border-color: rgba(251,191,36,.4); }
+  .metric .val {
+    font-size: 1.45rem; font-weight: 700; letter-spacing: -.02em;
+    font-variant-numeric: tabular-nums;
+  }
+  .metric .lab { color: var(--muted); font-size: .78rem; margin-top: 4px; }
+  .metric .det { color: var(--muted); font-size: .78rem; margin-top: 8px; }
+  .callout {
+    margin-top: 12px; padding: 12px 14px; border-radius: 12px;
+    border: 1px solid var(--line); background: rgba(56,189,248,.08);
+    font-size: .9rem;
+  }
+  .callout.warn { background: rgba(251,191,36,.1); border-color: rgba(251,191,36,.28); }
+  .callout strong { display: block; margin-bottom: 4px; }
+  table {
+    width: 100%; border-collapse: collapse; font-size: .88rem;
+    overflow: hidden; border-radius: 12px;
+  }
+  th, td {
+    padding: 10px 10px; border-bottom: 1px solid var(--line);
+    text-align: left; vertical-align: top;
+  }
+  th { color: var(--muted); font-weight: 600; font-size: .76rem; letter-spacing: .02em; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; font-family: var(--mono); font-size: .84rem; }
+  tr:last-child td { border-bottom: none; }
+  .scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .eq {
+    background: rgba(148,163,184,.06); border: 1px solid var(--line);
+    border-radius: 12px; padding: 12px 14px; margin-bottom: 10px;
+    font-size: .92rem;
+  }
+  .eq .tag {
+    display: inline-block; min-width: 28px; text-align: center;
+    background: rgba(56,189,248,.15); color: var(--accent);
+    border-radius: 8px; font-size: .75rem; font-weight: 700; padding: 2px 6px; margin-right: 8px;
+  }
+  .frac { display: inline-flex; flex-direction: column; align-items: center; vertical-align: middle; margin: 0 4px; line-height: 1.2; }
+  .frac .num, .frac .den { padding: 0 6px; }
+  .frac .bar { width: 100%; height: 1px; background: currentColor; opacity: .5; margin: 2px 0; }
+  .steps { display: grid; gap: 8px; }
+  .step {
+    display: grid; grid-template-columns: 28px 1fr; gap: 10px;
+    padding: 10px 12px; border-radius: 12px; border: 1px solid var(--line);
+    background: rgba(148,163,184,.05);
+  }
+  .step .n {
+    width: 28px; height: 28px; border-radius: 50%;
+    display: grid; place-items: center;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: #041018; font-weight: 800; font-size: .8rem;
+  }
+  .step .t { font-weight: 650; }
+  .step .d { color: var(--muted); font-size: .84rem; }
+  .chart-wrap { position: relative; height: 220px; margin-top: 4px; }
+  canvas { width: 100%; height: 100%; display: block; }
+  footer {
+    margin-top: 8px; color: var(--muted); font-size: .8rem;
+    padding: 12px 4px; border-top: 1px dashed var(--line);
+  }
+  .src a { color: var(--accent); text-decoration: none; }
+  .src a:hover { text-decoration: underline; }
+  .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .btn {
+    cursor: pointer; background: linear-gradient(135deg, #0ea5e9, #6366f1);
+    border: none; color: white; font-weight: 650; padding: 10px 14px;
+  }
+  .btn.ghost {
+    background: transparent; border: 1px solid var(--line); color: var(--text);
+  }
+  .hint { color: var(--muted); font-size: .82rem; margin-top: 8px; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div>
+        <h1>港股打新中签率估算</h1>
+        <p class="sub">输入新股代码 + 超购倍数，预测甲组一手与乙组获配；并按乙组申购市值给出乙头/乙中/乙尾预估中签手数（如 0～1手）。</p>
+      </div>
+      <div class="toolbar">
+        <span class="badge">离线可用 · 规则+经验估算</span>
+        <button class="btn ghost" type="button" id="btnReset">重置示例</button>
+      </div>
+    </header>
+
+    <section class="card">
+      <h2><span class="dot"></span>新股与超购</h2>
+      <div class="grid grid-3">
+        <label class="field">快速选代码（认购中/样本）
+          <select id="picked"></select>
+        </label>
+        <label class="field">新股代码
+          <input id="codeText" inputmode="numeric" placeholder="如 09621" value="09621" />
+        </label>
+        <label class="field">公开认购超购倍数
+          <input id="osText" type="number" inputmode="decimal" placeholder="例如 500" value="100" min="0" step="any" />
+        </label>
+      </div>
+      <div class="grid grid-3" style="margin-top:12px">
+        <label class="field">发售机制
+          <select id="mech">
+            <option value="B">机制B：固定公开% · 无回拨</option>
+            <option value="A">机制A：5%起 · 最高回拨至35%</option>
+            <option value="A_old">旧PN18：10%起 · 最高回拨至50%</option>
+          </select>
+        </label>
+        <label class="field">公开认购比例%（招股书）
+          <input id="publicFixedText" type="number" value="10" min="0" step="any" />
+        </label>
+        <label class="field">一手入场费（港元）
+          <input id="entryFeeText" type="number" value="5605.97" min="0" step="any" placeholder="如 5605.97" />
+        </label>
+      </div>
+      <div class="props" id="props"></div>
+      <p class="hint">超购倍数 = 公开认购总申请 ÷ 初始公开认购。一手入场费用来把乙组市值换成申购手数。</p>
+    </section>
+
+    <section class="card">
+      <h2><span class="dot"></span><span id="predTitle">预测</span></h2>
+      <div class="metrics" id="metrics"></div>
+      <div id="callout"></div>
+    </section>
+
+    <section class="card">
+      <h2><span class="dot"></span>乙组市值 → 预估中签手数</h2>
+      <p class="caption">乙头按刚过500万港元估；可改档位或自定义市值</p>
+      <div class="grid grid-2">
+        <label class="field">乙组关注档位
+          <select id="bTier">
+            <option value="head">乙头（约520万）</option>
+            <option value="mid">乙中（约1500万）</option>
+            <option value="tail">乙尾（约5000万）</option>
+            <option value="custom">自定义市值</option>
+          </select>
+        </label>
+        <label class="field">乙组申购市值（万港元）
+          <input id="bWanText" type="number" value="520" min="0" step="any" placeholder="例如 520" />
+        </label>
+      </div>
+      <div class="scroll" style="margin-top:12px">
+        <table>
+          <thead>
+            <tr><th>档位</th><th class="num">申购市值</th><th class="num">约申手数</th><th class="num">期望手数</th><th class="num">预估中签</th></tr>
+          </thead>
+          <tbody id="tierBody"></tbody>
+        </table>
+      </div>
+      <p class="hint">计算：期望手数 ≈（申购市值 ÷ 一手入场费）× 乙组平均获配比例。乙头略好、乙尾略差时，表中用同一均分比例作中位粗估。</p>
+    </section>
+
+    <section class="card">
+      <h2><span class="dot"></span>明细对照</h2>
+      <div class="scroll">
+        <table>
+          <thead>
+            <tr><th>组别</th><th>预测口径</th><th class="num">点估</th><th>说明</th></tr>
+          </thead>
+          <tbody id="detailBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2><span class="dot"></span>回拨档位</h2>
+      <p class="caption">相对初始公开认购的超购倍数</p>
+      <div class="scroll">
+        <table>
+          <thead>
+            <tr><th>超购倍数</th><th class="num">公开认购最终占比</th><th class="num">相对初始放大</th></tr>
+          </thead>
+          <tbody id="clawBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2><span class="dot"></span>公式</h2>
+      <div class="eq"><span class="tag">(1)</span>乙组期望手数 =
+        <span class="frac"><span class="num">乙组申购市值</span><span class="bar"></span><span class="den">一手入场费</span></span>
+        × 乙组平均获配比例
+      </div>
+      <div class="eq"><span class="tag">(2)</span>乙组获配比例 ≈
+        <span class="frac"><span class="num">公开池一半</span><span class="bar"></span><span class="den">乙组申请（约占总申请75%）</span></span>
+      </div>
+      <div class="props">
+        <div class="prop"><div class="k">乙头</div><div class="v">刚过500万港元的最低乙组档，常用来对比甲尾</div></div>
+        <div class="prop"><div class="k">0～1手</div><div class="v">期望手数&lt;1时的读法：大概率抽0或1手，中1手概率约等于期望值</div></div>
+        <div class="prop"><div class="k">代码库</div><div class="v">认购中批次已带一手入场费；未收录可手改</div></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2><span class="dot"></span>甲组一手经验曲线</h2>
+      <p class="caption">横轴超购倍数；纵轴经验中位一手中签率（%）</p>
+      <div class="chart-wrap"><canvas id="curve" width="900" height="220"></canvas></div>
+    </section>
+
+    <section class="card">
+      <h2><span class="dot"></span>历史对照</h2>
+      <div class="scroll">
+        <table>
+          <thead>
+            <tr><th>新股</th><th>代码</th><th>机制</th><th class="num">公开超购</th><th class="num">一手中签</th><th>备注</th></tr>
+          </thead>
+          <tbody id="histBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2><span class="dot"></span>怎么用</h2>
+      <div class="steps">
+        <div class="step"><div class="n">1</div><div><div class="t">选代码并填超购倍数</div><div class="d">库内代码会预填机制与一手入场费</div></div></div>
+        <div class="step"><div class="n">2</div><div><div class="t">看甲组一手率</div><div class="d">打一手主要看这个</div></div></div>
+        <div class="step"><div class="n">3</div><div><div class="t">选乙头/乙中/乙尾或填市值</div><div class="d">看预估中签手数，如 0～1手</div></div></div>
+        <div class="step"><div class="n">4</div><div><div class="t">以配发公告为准</div><div class="d">本页为规则+经验估算，不构成投资建议</div></div></div>
+      </div>
+    </section>
+
+    <footer>
+      <p><strong>免责声明：</strong>本工具依据公开规则与历史经验做估算，实际中签以港交所/联交所配发结果公告为准，不构成任何投资建议。</p>
+      <p class="src">参考来源：
+        <a href="https://www.hkex.com.hk/News/Regulatory-Announcements/2025/2508012news?sc_lang=zh-HK" target="_blank" rel="noopener">港交所监管公告</a> ·
+        <a href="https://cibo.hk/zh-CN/learn/ipo-allotment-rate.html" target="_blank" rel="noopener">中签率说明</a> ·
+        <a href="https://www.poems.com.hk/zh-hk/product-and-service/initial-public-offerings/ipo-info/" target="_blank" rel="noopener">POEMS IPO</a>
+      </p>
+      <p>数据快照约 2026-11-04；页内无联网，倍数需自行粘贴。</p>
+    </footer>
+  </div>
+
+<script>
+/** 以下 IPO_CATALOG 与算法自看板原样迁移 */
+const IPO_CATALOG = [
+  { code: "00054", name: "和美药业-B", mech: "B", publicPct: 10, lotSize: 100, entryFee: 1909.06, status: "认购中", note: "截止约11-04；机制未核招股书时按B·10%" },
+  { code: "09621", name: "远信储能", mech: "B", publicPct: 10, lotSize: 500, entryFee: 5605.97, status: "认购中", note: "孖展热度偏高；机制未核招股书时按B·10%" },
+  { code: "07672", name: "芯德半导体", mech: "B", publicPct: 10, lotSize: 500, entryFee: 4848.41, status: "认购中" },
+  { code: "09917", name: "登临科技-P", mech: "B", publicPct: 10, lotSize: 25, entryFee: 7272.61, status: "认购中" },
+  { code: "02206", name: "新荷花", mech: "B", publicPct: 10, lotSize: 50, entryFee: 2552.99, status: "认购中" },
+  { code: "02681", name: "宏芯宇", mech: "B", publicPct: 10, lotSize: 100, entryFee: 8373.6, status: "认购中" },
+  { code: "02065", name: "一微科技", mech: "B", publicPct: 10, lotSize: 500, entryFee: 5848.4, status: "认购中" },
+  { code: "02591", name: "银诺医药-B", mech: "B", publicPct: 10, lotSize: 200, entryFee: 3773.68, status: "样本", note: "机制B·10%无回拨；公开超购5342×，一手约7.1%" },
+  { code: "02476", name: "胜宏科技", mech: "B", publicPct: 10, lotSize: 100, status: "样本", note: "公开约431×，一手约0.71%" },
+];
+
+const HISTORY = [
+  { name: "银诺医药-B", code: "02591", mech: "B·10%无回拨", os: "5,342×", oneLot: "约 7.1%", note: "甲乙均需抽签；约25.6万人申、1.83万获配" },
+  { name: "胜宏科技", code: "02476", mech: "B·约10%", os: "约 431×", oneLot: "约 0.71%", note: "期望中一手约需700手" },
+  { name: "毛戈平（参考）", code: "—", mech: "旧回拨至50%", os: "高数百倍级", oneLot: "乙组均分约0.4%量级", note: "旧规有回拨" },
+];
+
+function normalizeCode(raw) {
+  const digits = String(raw || "").replace(/\D/g, "");
+  if (!digits) return "";
+  return digits.padStart(5, "0").slice(-5);
+}
+
+function findIpo(code) {
+  const n = normalizeCode(code);
+  if (!n) return undefined;
+  return IPO_CATALOG.find((x) => x.code === n);
+}
+
+function clawbackPct(mech, os) {
+  if (mech === "B") {
+    return { initial: 10, final: 10, label: "机制B：固定公开认购，无回拨" };
+  }
+  if (mech === "A_old") {
+    let final = 10;
+    if (os >= 100) final = 50;
+    else if (os >= 50) final = 40;
+    else if (os >= 15) final = 30;
+    return { initial: 10, final, label: "旧 PN18（2025-08-04 前）" };
+  }
+  let final = 5;
+  if (os >= 100) final = 35;
+  else if (os >= 50) final = 25;
+  else if (os >= 15) final = 15;
+  return { initial: 5, final, label: "机制A（2025-08-04 起）" };
+}
+
+function fmtPct(x) {
+  if (!Number.isFinite(x) || x <= 0) return "—";
+  if (x >= 10) return x.toFixed(1) + "%";
+  if (x >= 1) return x.toFixed(2) + "%";
+  if (x >= 0.1) return x.toFixed(3) + "%";
+  return x.toFixed(4) + "%";
+}
+
+function fmtMult(x) {
+  if (!Number.isFinite(x) || x <= 0) return "—";
+  if (x >= 100) return Math.round(x).toLocaleString("zh-CN") + "×";
+  if (x >= 10) return x.toFixed(1) + "×";
+  return x.toFixed(2) + "×";
+}
+
+function fmtLots(exp) {
+  if (!Number.isFinite(exp) || exp <= 0) return "—";
+  if (exp < 0.12) return "约0手";
+  if (exp < 1) return "0～1手";
+  const low = Math.max(0, Math.floor(exp * 0.75));
+  const high = Math.max(low + (exp < 1.5 ? 0 : 1), Math.ceil(exp * 1.25));
+  if (low === 0 && high === 1) return "0～1手";
+  if (low === high) return "约" + low + "手";
+  return low + "～" + high + "手";
+}
+
+function avgFill(mech, os) {
+  if (os <= 0) return 0;
+  if (mech === "B") return 1 / os;
+  const { initial, final } = clawbackPct(mech, os);
+  return final / initial / os;
+}
+
+function oneLotBand(mech, os) {
+  const fill = avgFill(mech, os);
+  const ballotBoost = Math.min(45, Math.max(6, 180 / Math.pow(Math.max(os, 1), 0.35)));
+  const mid = Math.min(1, fill * ballotBoost);
+  const low = Math.min(1, Math.max(fill, mid * 0.45));
+  const high = Math.min(1, Math.max(mid * 1.6, fill * (ballotBoost * 1.35)));
+  if (mech === "B" && os >= 2000) {
+    return {
+      low: Math.min(1, Math.max(0.02, 25 / os)),
+      mid: Math.min(1, Math.max(0.04, 80 / Math.sqrt(os))),
+      high: Math.min(1, Math.max(0.06, 180 / Math.sqrt(os))),
+    };
+  }
+  return { low, mid, high };
+}
+
+function groupEstimates(mech, os) {
+  const cb = clawbackPct(mech, os || 1);
+  const fill = avgFill(mech, os);
+  const effOs = os <= 0 ? 0 : mech === "B" ? os : (os * cb.initial) / cb.final;
+  const aMoneyFill = Math.min(1, 1 / Math.max(effOs * (0.25 / 0.5), 0.0001));
+  const bFill = Math.min(1, 1 / Math.max(effOs * (0.75 / 0.5), 0.0001));
+  const aOne = oneLotBand(mech, os);
+  return { cb, fill, effOs, aMoneyFill, bFill, aOne };
+}
+
+function bTierLots(bFill, entryFee, wan) {
+  const fee = entryFee > 0 ? entryFee : 5000;
+  const lotsApplied = Math.max(1, Math.round((wan * 10000) / fee));
+  const expected = lotsApplied * bFill;
+  return { wan, lotsApplied, expected, label: fmtLots(expected) };
+}
+
+const el = (id) => document.getElementById(id);
+
+function fillSelect() {
+  const sel = el("picked");
+  const opts = [{ value: "custom", label: "手动输入代码" }];
+  IPO_CATALOG.filter((x) => x.status === "认购中").forEach((x) => {
+    opts.push({ value: x.code, label: x.code + " " + x.name });
+  });
+  IPO_CATALOG.filter((x) => x.status === "样本").forEach((x) => {
+    opts.push({ value: x.code, label: "样本 · " + x.code + " " + x.name });
+  });
+  sel.innerHTML = opts.map((o) => `<option value="${o.value}">${o.label}</option>`).join("");
+  sel.value = "09621";
+}
+
+function applyCode(raw, syncPick) {
+  el("codeText").value = raw;
+  const n = normalizeCode(raw);
+  if (syncPick !== false) el("picked").value = IPO_CATALOG.some((x) => x.code === n) ? n : "custom";
+  const hit = findIpo(raw);
+  if (hit) {
+    el("mech").value = hit.mech;
+    el("publicFixedText").value = String(hit.publicPct);
+    if (hit.entryFee) el("entryFeeText").value = String(hit.entryFee);
+  }
+}
+
+function drawCurve(mech) {
+  const canvas = el("curve");
+  const ctx = canvas.getContext("2d");
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const cssW = canvas.clientWidth || 900;
+  const cssH = 220;
+  canvas.width = Math.floor(cssW * dpr);
+  canvas.height = Math.floor(cssH * dpr);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const xs = [5, 10, 15, 30, 50, 80, 100, 200, 500, 1000, 2000, 5000];
+  const pts = xs.map((x) => {
+    const g = groupEstimates(mech, x);
+    return { x, y: g.aOne.mid * 100, label: x >= 1000 ? x / 1000 + "k" : String(x) };
+  });
+  const maxY = Math.max(...pts.map((p) => p.y), 1) * 1.15;
+  const pad = { l: 44, r: 12, t: 16, b: 32 };
+  const W = cssW, H = cssH;
+  const plotW = W - pad.l - pad.r;
+  const plotH = H - pad.t - pad.b;
+  const styles = getComputedStyle(document.body);
+  const muted = styles.getPropertyValue("--muted").trim() || "#94a3b8";
+  const line = styles.getPropertyValue("--line").trim() || "rgba(148,163,184,.18)";
+  const accent = styles.getPropertyValue("--accent").trim() || "#38bdf8";
+  const text = styles.getPropertyValue("--text").trim() || "#e8eef9";
+  ctx.clearRect(0, 0, W, H);
+  ctx.strokeStyle = line;
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) {
+    const y = pad.t + (plotH * i) / 4;
+    ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(W - pad.r, y); ctx.stroke();
+    const val = maxY * (1 - i / 4);
+    ctx.fillStyle = muted;
+    ctx.font = "11px sans-serif";
+    ctx.textAlign = "right";
+    ctx.fillText((val >= 1 ? val.toFixed(1) : val.toFixed(2)) + "%", pad.l - 6, y + 3);
+  }
+  const xAt = (i) => pad.l + (plotW * i) / (pts.length - 1);
+  const yAt = (v) => pad.t + plotH * (1 - v / maxY);
+  ctx.beginPath();
+  pts.forEach((p, i) => {
+    const X = xAt(i), Y = yAt(p.y);
+    if (i === 0) ctx.moveTo(X, Y); else ctx.lineTo(X, Y);
+  });
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = 2.5;
+  ctx.stroke();
+  const grad = ctx.createLinearGradient(0, pad.t, 0, H - pad.b);
+  grad.addColorStop(0, "rgba(56,189,248,.28)");
+  grad.addColorStop(1, "rgba(56,189,248,0)");
+  ctx.lineTo(xAt(pts.length - 1), H - pad.b);
+  ctx.lineTo(xAt(0), H - pad.b);
+  ctx.closePath();
+  ctx.fillStyle = grad;
+  ctx.fill();
+  pts.forEach((p, i) => {
+    const X = xAt(i), Y = yAt(p.y);
+    ctx.beginPath();
+    ctx.arc(X, Y, 3.2, 0, Math.PI * 2);
+    ctx.fillStyle = accent;
+    ctx.fill();
+    ctx.fillStyle = muted;
+    ctx.font = "10px sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText(p.label, X, H - 10);
+  });
+  ctx.fillStyle = text;
+  ctx.font = "11px sans-serif";
+  ctx.textAlign = "left";
+  ctx.fillText("一手中签经验中位", pad.l, 12);
+}
+
+function render() {
+  const codeText = el("codeText").value;
+  const matched = findIpo(codeText);
+  const codeNorm = normalizeCode(codeText);
+  const os = (() => {
+    const n = parseFloat(String(el("osText").value).replace(/,/g, ""));
+    return Number.isFinite(n) && n > 0 ? n : 0;
+  })();
+  const mech = el("mech").value;
+  const publicFixed = (() => {
+    const n = parseFloat(el("publicFixedText").value);
+    return Number.isFinite(n) ? n : 10;
+  })();
+  const entryFee = (() => {
+    const n = parseFloat(String(el("entryFeeText").value).replace(/,/g, ""));
+    return Number.isFinite(n) && n > 0 ? n : 0;
+  })();
+  const bWanCustom = (() => {
+    const n = parseFloat(String(el("bWanText").value).replace(/,/g, ""));
+    return Number.isFinite(n) && n > 0 ? n : 0;
+  })();
+  const bTier = el("bTier").value;
+  const titleName = matched ? matched.name : codeNorm ? "代码 " + codeNorm : "未选代码";
+  el("predTitle").textContent = "预测 · " + titleName;
+
+  el("props").innerHTML = [
+    ["识别", titleName],
+    ["状态", matched ? matched.status + (matched.note ? " · " + matched.note : "") : "未收录：按你选手动估"],
+    ["公开比例参考", publicFixed + "%（仅展示；机制B无回拨）"],
+  ].map(([k, v]) => `<div class="prop"><div class="k">${k}</div><div class="v">${v}</div></div>`).join("");
+
+  const est = groupEstimates(mech, os);
+  let bTiers = null;
+  if (os > 0 && entryFee > 0) {
+    const head = bTierLots(est.bFill, entryFee, 520);
+    const mid = bTierLots(est.bFill, entryFee, 1500);
+    const tail = bTierLots(est.bFill, entryFee, 5000);
+    const custom = bWanCustom > 0 ? bTierLots(est.bFill, entryFee, bWanCustom) : null;
+    bTiers = { head, mid, tail, custom };
+  }
+  let bFocus = null;
+  if (bTiers) {
+    if (bTier === "mid") bFocus = { name: "乙中", ...bTiers.mid };
+    else if (bTier === "tail") bFocus = { name: "乙尾", ...bTiers.tail };
+    else if (bTier === "custom" && bTiers.custom) bFocus = { name: "自定义乙组", ...bTiers.custom };
+    else bFocus = { name: "乙头", ...bTiers.head };
+  }
+
+  const m1Tone = os > 0 ? (est.aOne.mid >= 0.1 ? "ok" : est.aOne.mid < 0.02 ? "warn" : "") : "";
+  const m2Tone = os > 0 ? (est.bFill >= 0.02 ? "" : "warn") : "";
+  const m3Tone = bFocus && bFocus.expected < 1 ? "warn" : "";
+
+  el("metrics").innerHTML = `
+    <div class="metric ${m1Tone}"><div class="val">${os > 0 ? fmtPct(est.aOne.mid * 100) : "—"}</div><div class="lab">甲组 · 一手中签率（中位）</div><div class="det">${os > 0 ? "区间 " + fmtPct(est.aOne.low * 100) + "–" + fmtPct(est.aOne.high * 100) : "填超购倍数"}</div></div>
+    <div class="metric ${m2Tone}"><div class="val">${os > 0 ? fmtPct(est.bFill * 100) : "—"}</div><div class="lab">乙组 · 平均获配比例</div><div class="det">按甲乙资金约25:75、公开池各半</div></div>
+    <div class="metric ${m3Tone}"><div class="val">${bFocus ? bFocus.label : "—"}</div><div class="lab">${(bFocus ? bFocus.name : "乙头")} · 预估中签手数</div><div class="det">${bFocus ? "约申 " + bFocus.lotsApplied.toLocaleString("zh-CN") + " 手 · 期望 " + bFocus.expected.toFixed(2) + " 手" : "需超购倍数 + 一手入场费"}</div></div>
+    <div class="metric"><div class="val">${os > 0 ? fmtPct(est.fill * 100) : "—"}</div><div class="lab">公开整体平均获配</div><div class="det">${os > 0 ? "有效超购 " + fmtMult(est.effOs) + " · 公开最终 " + est.cb.final + "%" : "—"}</div></div>
+  `;
+
+  const call = el("callout");
+  if (os > 0) {
+    const tone = est.aOne.mid >= 0.05 ? "" : "warn";
+    call.innerHTML = `<div class="callout ${tone}"><strong>甲组 vs 乙组</strong>甲组一手用历史抽签经验带；乙组手数 = 申购手数 × 乙组平均获配比例。期望不足 1 手时显示为 0～1手（实质是抽签中一手的概率约等于期望手数）。</div>`;
+  } else call.innerHTML = "";
+
+  if (bTiers) {
+    const rows = [
+      ["乙头", "约520万", bTiers.head],
+      ["乙中", "约1500万", bTiers.mid],
+      ["乙尾", "约5000万", bTiers.tail],
+    ];
+    let html = rows.map(([n, wan, t]) =>
+      `<tr><td>${n}</td><td class="num">${wan}</td><td class="num">${t.lotsApplied.toLocaleString("zh-CN")}</td><td class="num">${t.expected.toFixed(2)}</td><td class="num">${t.label}</td></tr>`
+    ).join("");
+    if (bTiers.custom) {
+      html += `<tr><td>自定义</td><td class="num">${bTiers.custom.wan}万</td><td class="num">${bTiers.custom.lotsApplied.toLocaleString("zh-CN")}</td><td class="num">${bTiers.custom.expected.toFixed(2)}</td><td class="num">${bTiers.custom.label}</td></tr>`;
+    } else {
+      html += `<tr><td>自定义</td><td class="num">填左侧市值</td><td class="num">—</td><td class="num">—</td><td class="num">—</td></tr>`;
+    }
+    el("tierBody").innerHTML = html;
+  } else {
+    el("tierBody").innerHTML = `<tr><td colspan="5">先填超购倍数与一手入场费</td></tr>`;
+  }
+
+  el("detailBody").innerHTML = [
+    ["甲组", "一手中签率", os > 0 ? fmtPct(est.aOne.mid * 100) : "—", os > 0 ? "经验区间 " + fmtPct(est.aOne.low * 100) + "–" + fmtPct(est.aOne.high * 100) : "待输入"],
+    ["甲组", "金额均分获配", os > 0 ? fmtPct(est.aMoneyFill * 100) : "—", "甲尾等大额档更接近此值"],
+    ["乙组", "平均获配比例", os > 0 ? fmtPct(est.bFill * 100) : "—", "乙头略好、乙尾略差"],
+    ["乙组", (bFocus ? bFocus.name : "乙头") + "中签手数", bFocus ? bFocus.label : "—", bFocus ? "期望 " + bFocus.expected.toFixed(2) + " 手" : "需入场费"],
+    ["整体", "公开平均获配", os > 0 ? fmtPct(est.fill * 100) : "—", est.cb.label],
+  ].map((r) => `<tr><td>${r[0]}</td><td>${r[1]}</td><td class="num">${r[2]}</td><td>${r[3]}</td></tr>`).join("");
+
+  if (mech === "B") {
+    el("clawBody").innerHTML = `<tr><td>任意</td><td class="num">${publicFixed}%（招股书锁定）</td><td class="num">1.0×（无回拨）</td></tr>`;
+  } else if (mech === "A") {
+    el("clawBody").innerHTML = [
+      ["< 15×", "5%", "1.0×"],
+      ["15×–<50×", "15%", "3.0×"],
+      ["50×–<100×", "25%", "5.0×"],
+      ["≥ 100×", "35%", "7.0×"],
+    ].map((r) => `<tr><td>${r[0]}</td><td class="num">${r[1]}</td><td class="num">${r[2]}</td></tr>`).join("");
+  } else {
+    el("clawBody").innerHTML = [
+      ["< 15×", "10%", "1.0×"],
+      ["15×–<50×", "30%", "3.0×"],
+      ["50×–<100×", "40%", "4.0×"],
+      ["≥ 100×", "50%", "5.0×"],
+    ].map((r) => `<tr><td>${r[0]}</td><td class="num">${r[1]}</td><td class="num">${r[2]}</td></tr>`).join("");
+  }
+
+  el("histBody").innerHTML = HISTORY.map((h) =>
+    `<tr><td>${h.name}</td><td>${h.code}</td><td>${h.mech}</td><td class="num">${h.os}</td><td class="num">${h.oneLot}</td><td>${h.note}</td></tr>`
+  ).join("");
+
+  drawCurve(mech);
+}
+
+fillSelect();
+["picked","codeText","osText","mech","publicFixedText","entryFeeText","bWanText","bTier"].forEach((id) => {
+  const node = el(id);
+  const ev = node.tagName === "SELECT" || node.type === "number" ? "input" : "input";
+  node.addEventListener(ev, () => {
+    if (id === "picked") {
+      const v = el("picked").value;
+      if (v !== "custom") applyCode(v);
+    } else if (id === "codeText") {
+      const v = el("codeText").value;
+      const n = normalizeCode(v);
+      el("picked").value = IPO_CATALOG.some((x) => x.code === n) ? n : "custom";
+      const hit = findIpo(v);
+      if (hit) {
+        el("mech").value = hit.mech;
+        el("publicFixedText").value = String(hit.publicPct);
+        if (hit.entryFee) el("entryFeeText").value = String(hit.entryFee);
+      }
+    } else if (id === "bWanText") {
+      el("bTier").value = "custom";
+    }
+    render();
+  });
+  node.addEventListener("change", () => render());
+});
+el("btnReset").addEventListener("click", () => {
+  applyCode("09621");
+  el("osText").value = "100";
+  el("bTier").value = "head";
+  el("bWanText").value = "520";
+  render();
+});
+window.addEventListener("resize", () => render());
+applyCode("09621");
+render();
+</script>
+</body>
+</html>
