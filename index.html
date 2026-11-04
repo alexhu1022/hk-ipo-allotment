@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="color-scheme" content="light dark" />
 <title>港股打新中签率估算</title>
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
 <style>
   :root {
     --bg: #0b1220;
@@ -240,7 +243,7 @@
   <div class="wrap">
     <header>
       <div>
-        <h1>港股打新中签率估算</h1>
+        <h1>港股打新中签率估算 <span style="font-size:12px;font-weight:500;opacity:.65" data-build="v2-20261104">v2 · 倍数高亮 · 手数概率</span></h1>
         <p class="sub">输入新股代码 + 超购倍数，预测甲组一手与乙组获配；并按乙组申购市值给出乙头/乙中/乙尾预估中签手数（如 0～1手）。</p>
       </div>
       <div class="toolbar">
@@ -256,7 +259,7 @@
           <select id="picked"></select>
         </label>
         <label class="field">新股代码
-          <input id="codeText" inputmode="numeric" placeholder="如 09621" value="09621" />
+          <input id="codeText" inputmode="numeric" placeholder="如 09621" value="07672" />
         </label>
         <label class="field os-highlight"><span class="os-tag">公开认购超购倍数（必填）</span>
           <input id="osText" class="os-input" type="number" inputmode="decimal" placeholder="例如 500" value="100" min="0" step="any" />
@@ -274,7 +277,7 @@
           <input id="publicFixedText" type="number" value="10" min="0" step="any" />
         </label>
         <label class="field">一手入场费（港元）
-          <input id="entryFeeText" type="number" value="5605.97" min="0" step="any" placeholder="如 5605.97" />
+          <input id="entryFeeText" type="number" value="4848.41" min="0" step="any" placeholder="如 5605.97" />
         </label>
       </div>
       <div class="props" id="props"></div>
@@ -399,8 +402,8 @@
 <script>
 /** 以下 IPO_CATALOG 与算法自看板原样迁移 */
 const IPO_CATALOG = [
-  { code: "00054", name: "和美药业-B", mech: "B", publicPct: 10, lotSize: 100, entryFee: 1909.06, status: "认购中", note: "截止约11-04；机制未核招股书时按B·10%" },
-  { code: "09621", name: "远信储能", mech: "B", publicPct: 10, lotSize: 500, entryFee: 5605.97, status: "认购中", note: "孖展热度偏高；机制未核招股书时按B·10%" },
+  { code: "00054", name: "和美药业-B", mech: "B", publicPct: 10, lotSize: 100, entryFee: 1909.06, status: "待上市", note: "公开已于11-04 12:00截止；配发约11-06；上市11-09；机制B·10%无回拨（已核）" },
+  { code: "09621", name: "远信储能", mech: "B", publicPct: 10, lotSize: 500, entryFee: 5605.97, status: "待上市", note: "公开已于11-04 12:00截止；配发约11-06；上市11-09；机制B·10%无回拨（已核）；券商孖展热度极高（非官方超购倍数）" },
   { code: "07672", name: "芯德半导体", mech: "B", publicPct: 10, lotSize: 500, entryFee: 4848.41, status: "认购中" },
   { code: "09917", name: "登临科技-P", mech: "B", publicPct: 10, lotSize: 25, entryFee: 7272.61, status: "认购中" },
   { code: "02206", name: "新荷花", mech: "B", publicPct: 10, lotSize: 50, entryFee: 2552.99, status: "认购中" },
@@ -547,7 +550,7 @@ function fillSelect() {
     opts.push({ value: x.code, label: "样本 · " + x.code + " " + x.name });
   });
   sel.innerHTML = opts.map((o) => `<option value="${o.value}">${o.label}</option>`).join("");
-  sel.value = "09621";
+  sel.value = "07672";
 }
 
 function applyCode(raw, syncPick) {
@@ -776,14 +779,14 @@ fillSelect();
   node.addEventListener("change", () => render());
 });
 el("btnReset").addEventListener("click", () => {
-  applyCode("09621");
+  applyCode("07672");
   el("osText").value = "100";
   el("bTier").value = "head";
   el("bWanText").value = "520";
   render();
 });
 window.addEventListener("resize", () => render());
-applyCode("09621");
+applyCode("07672");
 render();
 </script>
 </body>
